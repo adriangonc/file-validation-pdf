@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -40,6 +41,21 @@ public class PdfValidationResource {
 		return new ResponseEntity<Object>("Invalid file!", HttpStatus.BAD_REQUEST);
 
 	}
+	
+	@GetMapping("/fonts")
+	public ResponseEntity<Object> listFonts(@RequestParam("file") MultipartFile file){
+		List<String> fonts = new ArrayList<String>();
+		try {
+			fonts = listPdfFonts(multipartToFile(file, "pdf"));
+		} catch (IllegalStateException e) {
+			e.printStackTrace();
+			return new ResponseEntity<Object>("Invalid file!", HttpStatus.BAD_REQUEST);
+		} catch (IOException e) {
+			e.printStackTrace();
+			return new ResponseEntity<Object>("Invalid file!", HttpStatus.BAD_REQUEST);
+		}
+		return new ResponseEntity<Object>(fonts, HttpStatus.OK);
+	}
 
 	public static boolean thereAreErrorsInPdf(File file) throws IOException {
 		try {
@@ -57,13 +73,19 @@ public class PdfValidationResource {
 		}
 	}
 
-	public static List<String> listPdfFonts(PdfReader reader) throws IOException {
+	public List<String> listPdfFonts(File file) throws IOException {
 		List<String> fonts = new ArrayList<String>();
-		int n = reader.getXrefSize();
+		
+		RandomAccessFile raf = new RandomAccessFile(file, "r");
+		RandomAccessSource ras = new RandomAccessSourceFactory().createSource(raf);
+		RandomAccessFileOrArray rafoa = new RandomAccessFileOrArray(ras);
+		PdfReader pdf = new PdfReader(rafoa, new byte[0]);
+		
+		int n = pdf.getXrefSize();
 		PdfObject object;
 		PdfDictionary font;
 		for (int i = 0; i < n; i++) {
-			object = reader.getPdfObject(i);
+			object = pdf.getPdfObject(i);
 			if (object == null || !object.isDictionary()) {
 				continue;
 			}
